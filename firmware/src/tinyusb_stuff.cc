@@ -25,194 +25,61 @@
  */
 
 #include <tusb.h>
+#include "platform.h" // For GPIO setup
+#include "globals.h" // For your global variables
 
-#include "config.h"
-#include "globals.h"
-#include "our_descriptor.h"
-#include "platform.h"
-#include "remapper.h"
+// Define GPIO pins for directional buttons
+#define UP_PIN      2
+#define DOWN_PIN    3
+#define LEFT_PIN    4
+#define RIGHT_PIN   5
 
-// These IDs are bogus. If you want to distribute any hardware using this,
-// you will have to get real ones.
-#define USB_VID 0xCAFE
-#define USB_PID 0xBAF2
+// Function to read GPIO pin states for directional buttons
+void read_directional_inputs(bool *up, bool *down, bool *left, bool *right) {
+    *up = gpio_get(UP_PIN);
+    *down = gpio_get(DOWN_PIN);
+    *left = gpio_get(LEFT_PIN);
+    *right = gpio_get(RIGHT_PIN);
+}
 
-tusb_desc_device_t desc_device = {
-    .bLength = sizeof(tusb_desc_device_t),
-    .bDescriptorType = TUSB_DESC_DEVICE,
-    .bcdUSB = 0x0200,
-    .bDeviceClass = 0x00,
-    .bDeviceSubClass = 0x00,
-    .bDeviceProtocol = 0x00,
-    .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,
-
-    .idVendor = USB_VID,
-    .idProduct = USB_PID,
-    .bcdDevice = 0x0100,
-
-    .iManufacturer = 0x01,
-    .iProduct = 0x02,
-    .iSerialNumber = 0x00,
-
-    .bNumConfigurations = 0x01,
-};
-
-const uint8_t configuration_descriptor0[] = {
-    TUD_CONFIG_DESCRIPTOR(1, 2, 0, TUD_CONFIG_DESC_LEN + TUD_HID_DESC_LEN + TUD_HID_DESC_LEN, 0, 100),
-    TUD_HID_DESCRIPTOR(0, 0, HID_ITF_PROTOCOL_KEYBOARD, our_descriptors[0].descriptor_length, 0x81, CFG_TUD_HID_EP_BUFSIZE, 1),
-    TUD_HID_DESCRIPTOR(1, 0, HID_ITF_PROTOCOL_NONE, config_report_descriptor_length, 0x83, CFG_TUD_HID_EP_BUFSIZE, 1),
-};
-
-const uint8_t configuration_descriptor1[] = {
-    TUD_CONFIG_DESCRIPTOR(1, 2, 0, TUD_CONFIG_DESC_LEN + TUD_HID_DESC_LEN + TUD_HID_DESC_LEN, 0, 100),
-    TUD_HID_DESCRIPTOR(0, 0, HID_ITF_PROTOCOL_KEYBOARD, our_descriptors[1].descriptor_length, 0x81, CFG_TUD_HID_EP_BUFSIZE, 1),
-    TUD_HID_DESCRIPTOR(1, 0, HID_ITF_PROTOCOL_NONE, config_report_descriptor_length, 0x83, CFG_TUD_HID_EP_BUFSIZE, 1),
-};
-
-const uint8_t configuration_descriptor2[] = {
-    TUD_CONFIG_DESCRIPTOR(1, 2, 0, TUD_CONFIG_DESC_LEN + TUD_HID_INOUT_DESC_LEN + TUD_HID_DESC_LEN, 0, 100),
-    TUD_HID_INOUT_DESCRIPTOR(0, 0, HID_ITF_PROTOCOL_NONE, our_descriptors[2].descriptor_length, 0x02, 0x81, CFG_TUD_HID_EP_BUFSIZE, 1),
-    TUD_HID_DESCRIPTOR(1, 0, HID_ITF_PROTOCOL_NONE, config_report_descriptor_length, 0x83, CFG_TUD_HID_EP_BUFSIZE, 1),
-};
-
-const uint8_t configuration_descriptor3[] = {
-    TUD_CONFIG_DESCRIPTOR(1, 2, 0, TUD_CONFIG_DESC_LEN + TUD_HID_DESC_LEN + TUD_HID_DESC_LEN, 0, 100),
-    TUD_HID_DESCRIPTOR(0, 0, HID_ITF_PROTOCOL_NONE, our_descriptors[3].descriptor_length, 0x81, CFG_TUD_HID_EP_BUFSIZE, 1),
-    TUD_HID_DESCRIPTOR(1, 0, HID_ITF_PROTOCOL_NONE, config_report_descriptor_length, 0x83, CFG_TUD_HID_EP_BUFSIZE, 1),
-};
-
-const uint8_t configuration_descriptor4[] = {
-    TUD_CONFIG_DESCRIPTOR(1, 2, 0, TUD_CONFIG_DESC_LEN + TUD_HID_INOUT_DESC_LEN + TUD_HID_DESC_LEN, 0, 100),
-    TUD_HID_INOUT_DESCRIPTOR(0, 0, HID_ITF_PROTOCOL_NONE, our_descriptors[4].descriptor_length, 0x02, 0x81, CFG_TUD_HID_EP_BUFSIZE, 1),
-    TUD_HID_DESCRIPTOR(1, 0, HID_ITF_PROTOCOL_NONE, config_report_descriptor_length, 0x83, CFG_TUD_HID_EP_BUFSIZE, 1),
-};
-
-const uint8_t configuration_descriptor5[] = {
-    TUD_CONFIG_DESCRIPTOR(1, 2, 0, TUD_CONFIG_DESC_LEN + TUD_HID_DESC_LEN + TUD_HID_DESC_LEN, 0, 100),
-    TUD_HID_DESCRIPTOR(0, 0, HID_ITF_PROTOCOL_NONE, our_descriptors[5].descriptor_length, 0x81, CFG_TUD_HID_EP_BUFSIZE, 1),
-    TUD_HID_DESCRIPTOR(1, 0, HID_ITF_PROTOCOL_NONE, config_report_descriptor_length, 0x83, CFG_TUD_HID_EP_BUFSIZE, 1),
-};
-
-const uint8_t* configuration_descriptors[] = {
-    configuration_descriptor0,
-    configuration_descriptor1,
-    configuration_descriptor2,
-    configuration_descriptor3,
-    configuration_descriptor4,
-    configuration_descriptor5,
-};
-
-char const* string_desc_arr[] = {
-    (const char[]){ 0x09, 0x04 },  // 0: is supported language is English (0x0409)
-    "RP2040",                      // 1: Manufacturer
-    "HID Remapper XXXX",           // 2: Product
-};
-
-// Invoked when received GET DEVICE DESCRIPTOR
-// Application return pointer to descriptor
-uint8_t const* tud_descriptor_device_cb() {
-    if ((our_descriptor->vid != 0) && (our_descriptor->pid != 0)) {
-        desc_device.idVendor = our_descriptor->vid;
-        desc_device.idProduct = our_descriptor->pid;
+// SOCD cleaning function
+void socd_cleaning(bool *up, bool *down, bool *left, bool *right) {
+    // Vertical cleaning: Up + Down = Neutral
+    if (*up && *down) {
+        *up = false;
+        *down = false;
     }
-    return (uint8_t const*) &desc_device;
-}
-
-// Invoked when received GET CONFIGURATION DESCRIPTOR
-// Application return pointer to descriptor
-// Descriptor contents must exist long enough for transfer to complete
-uint8_t const* tud_descriptor_configuration_cb(uint8_t index) {
-    return configuration_descriptors[our_descriptor->idx];
-}
-
-// Invoked when received GET HID REPORT DESCRIPTOR
-// Application return pointer to descriptor
-// Descriptor contents must exist long enough for transfer to complete
-uint8_t const* tud_hid_descriptor_report_cb(uint8_t itf) {
-    if (itf == 0) {
-        return our_descriptor->descriptor;
-    } else if (itf == 1) {
-        return config_report_descriptor;
-    }
-
-    return NULL;
-}
-
-static uint16_t _desc_str[32];
-
-const char id_chars[33] = "0123456789ABCDEFGHIJKLMNOPQRSTUV";
-
-// Invoked when received GET STRING DESCRIPTOR request
-// Application return pointer to descriptor, whose contents must exist long enough for transfer to complete
-uint16_t const* tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
-    uint8_t chr_count;
-
-    if (index == 0) {
-        memcpy(&_desc_str[1], string_desc_arr[0], 2);
-        chr_count = 1;
-    } else {
-        // Note: the 0xEE index string is a Microsoft OS 1.0 Descriptors.
-        // https://docs.microsoft.com/en-us/windows-hardware/drivers/usbcon/microsoft-defined-usb-descriptors
-
-        if (!(index < sizeof(string_desc_arr) / sizeof(string_desc_arr[0])))
-            return NULL;
-
-        const char* str = string_desc_arr[index];
-
-        // Cap at max char
-        chr_count = strlen(str);
-        if (chr_count > 31)
-            chr_count = 31;
-
-        // Convert ASCII string into UTF-16
-        for (uint8_t i = 0; i < chr_count; i++) {
-            _desc_str[1 + i] = str[i];
-        }
-
-        if (index == 2) {
-            uint64_t unique_id = get_unique_id();
-            for (uint8_t i = 0; i < 4; i++) {
-                _desc_str[1 + chr_count - 4 + i] = id_chars[(unique_id >> (15 - i * 5)) & 0x1F];
-            }
-        }
-    }
-
-    // first byte is length (including header), second byte is string type
-    _desc_str[0] = (TUSB_DESC_STRING << 8) | (2 * chr_count + 2);
-
-    return _desc_str;
-}
-
-uint16_t tud_hid_get_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t report_type, uint8_t* buffer, uint16_t reqlen) {
-    if (itf == 0) {
-        return handle_get_report0(report_id, buffer, reqlen);
-    } else {
-        return handle_get_report1(report_id, buffer, reqlen);
+    // Horizontal cleaning: Left + Right = Neutral
+    if (*left && *right) {
+        *left = false;
+        *right = false;
     }
 }
 
-void tud_hid_set_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t report_type, uint8_t const* buffer, uint16_t bufsize) {
-    if (itf == 0) {
-        if ((report_id == 0) && (report_type == 0) && (bufsize > 0)) {
-            report_id = buffer[0];
-            buffer++;
-        }
-        handle_set_report0(report_id, buffer, bufsize);
-    } else {
-        handle_set_report1(report_id, buffer, bufsize);
-    }
+// Main function to update USB HID report with cleaned inputs
+void send_hid_report() {
+    bool up, down, left, right;
+
+    // Read raw input states
+    read_directional_inputs(&up, &down, &left, &right);
+
+    // Apply SOCD cleaning
+    socd_cleaning(&up, &down, &left, &right);
+
+    // Create a report based on cleaned states
+    uint8_t report[4] = {0};
+    report[0] = up ? 1 : 0;       // Set bits or values based on the button state
+    report[1] = down ? 1 : 0;
+    report[2] = left ? 1 : 0;
+    report[3] = right ? 1 : 0;
+
+    // Send the report over USB
+    tud_hid_report(0, report, sizeof(report));
 }
 
-void tud_hid_set_protocol_cb(uint8_t instance, uint8_t protocol) {
-    printf("tud_hid_set_protocol_cb %d %d\n", instance, protocol);
-    boot_protocol_keyboard = (protocol == HID_PROTOCOL_BOOT);
-    boot_protocol_updated = true;
-}
-
-void tud_mount_cb() {
-    reset_resolution_multiplier();
-    if (boot_protocol_keyboard) {
-        boot_protocol_keyboard = false;
-        boot_protocol_updated = true;
+void tud_hid_task() {
+    // Check if device is ready to send HID report
+    if (tud_hid_ready()) {
+        send_hid_report();
     }
 }
