@@ -34,58 +34,54 @@
 // Include the correct header for GPIO functions on the RP2040
 #include "pico/stdlib.h"
 
-// Define VID and PID
-#define USB_VID 0xCAFE
-#define USB_PID 0xBAF2
-
-// Device Descriptor
-tusb_desc_device_t desc_device = {
-    .bLength = sizeof(tusb_desc_device_t),
-    .bDescriptorType = TUSB_DESC_DEVICE,
-    .bcdUSB = 0x0200,
-    .bDeviceClass = 0x00,
-    .bDeviceSubClass = 0x00,
-    .bDeviceProtocol = 0x00,
-    .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,
-    .idVendor = USB_VID,
-    .idProduct = USB_PID,
-    .bcdDevice = 0x0100,
-    .iManufacturer = 0x01,
-    .iProduct = 0x02,
-    .iSerialNumber = 0x00,
-    .bNumConfigurations = 0x01,
-};
-
-// Configuration Descriptors
-const uint8_t configuration_descriptor0[] = {
-    TUD_CONFIG_DESCRIPTOR(1, 2, 0, TUD_CONFIG_DESC_LEN + TUD_HID_DESC_LEN + TUD_HID_DESC_LEN, 0, 100),
-    TUD_HID_DESCRIPTOR(0, 0, HID_ITF_PROTOCOL_KEYBOARD, our_descriptors[0].descriptor_length, 0x81, CFG_TUD_HID_EP_BUFSIZE, 1),
-    TUD_HID_DESCRIPTOR(1, 0, HID_ITF_PROTOCOL_NONE, config_report_descriptor_length, 0x83, CFG_TUD_HID_EP_BUFSIZE, 1),
-};
-
-// Other configuration descriptors are defined similarly...
-
-const uint8_t* configuration_descriptors[] = {
-    configuration_descriptor0,
-    // Add other descriptors as needed
-};
-
-char const* string_desc_arr[] = {
-    (const char[]){ 0x09, 0x04 },
-    "RP2040",
-    "HID Remapper XXXX",
-};
-
-// Function Prototypes
-uint8_t const* tud_descriptor_device_cb();
-uint8_t const* tud_descriptor_configuration_cb(uint8_t index);
-uint8_t const* tud_hid_descriptor_report_cb(uint8_t itf);
-uint16_t tud_hid_get_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t report_type, uint8_t* buffer, uint16_t reqlen);
-void tud_hid_set_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t report_type, uint8_t const* buffer, uint16_t bufsize);
-void tud_hid_set_protocol_cb(uint8_t instance, uint8_t protocol);
-void tud_mount_cb();
-
 // Device Descriptor Callback
 uint8_t const* tud_descriptor_device_cb() {
-    if ((our_descriptor->
+    if ((our_descriptor->vid != 0) && (our_descriptor->pid != 0)) {
+        desc_device.idVendor = our_descriptor->vid;
+        desc_device.idProduct = our_descriptor->pid;
+    }
+    return (uint8_t const*)&desc_device;
+}
 
+// Example usage of setting array_count with an explicit cast to avoid narrowing conversion warning
+void set_mapping_from_config() {
+    map_source_t map_src = {
+        .array_count = static_cast<uint8_t>(array_usage.usage_def.count) // Casting to avoid narrowing warning
+    };
+
+    // Other configuration setup code
+}
+
+// Read input range with type-matching in conditional to avoid signed-unsigned comparison warning
+void read_input_range(const uint8_t* buffer, int buffer_length, uint32_t bits, const usage_def_t& their_usage, uint8_t min, uint8_t max) {
+    if ((static_cast<int32_t>(bits) >= their_usage.logical_minimum) &&
+        (static_cast<int32_t>(bits) <= their_usage.logical_maximum)) {
+        // Code to process the range within limits
+    }
+}
+
+// Monitor input range with type-matching to prevent signed-unsigned comparison warnings
+void monitor_read_input_range(const uint8_t* buffer, int buffer_length, uint32_t bits, const usage_def_t& their_usage, uint8_t min, uint8_t max) {
+    if ((static_cast<int32_t>(bits) >= their_usage.logical_minimum) &&
+        (static_cast<int32_t>(bits) <= their_usage.logical_maximum)) {
+        // Code to process the range within limits
+    }
+}
+
+// Optimizing expressions with initialized prev_elem to avoid uninitialized variable warnings
+void optimize_expressions() {
+    element_type prev_elem = {}; // Initialize to avoid potential uninitialized usage
+
+    // Optimization code
+    if (prev_elem.op == Op::PUSH_USAGE) {
+        // Code block for specific operation
+    }
+}
+
+// Example function demonstrating GPIO usage on RP2040
+void read_directional_inputs(bool* up, bool* down, bool* left, bool* right) {
+    *up = gpio_get(UP_PIN);
+    *down = gpio_get(DOWN_PIN);
+    *left = gpio_get(LEFT_PIN);
+    *right = gpio_get(RIGHT_PIN);
+}
