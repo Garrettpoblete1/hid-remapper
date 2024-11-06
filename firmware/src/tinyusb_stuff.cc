@@ -22,65 +22,70 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  *
-
  */
 
 #include <tusb.h>
-#include "platform.h" // For GPIO setup
-#include "globals.h" // For your global variables
+#include "config.h"
+#include "globals.h"
+#include "our_descriptor.h"
+#include "platform.h"
+#include "remapper.h"
 
-// Define GPIO pins for directional buttons
-#define UP_PIN      2
-#define DOWN_PIN    3
-#define LEFT_PIN    4
-#define RIGHT_PIN   5
+// Include the correct header for GPIO functions on the RP2040
+#include "pico/stdlib.h"
 
-// Function to read GPIO pin states for directional buttons
-void read_directional_inputs(bool *up, bool *down, bool *left, bool *right) {
-    *up = gpio_get(UP_PIN);
-    *down = gpio_get(DOWN_PIN);
-    *left = gpio_get(LEFT_PIN);
-    *right = gpio_get(RIGHT_PIN);
-}
+// Define VID and PID
+#define USB_VID 0xCAFE
+#define USB_PID 0xBAF2
 
-// SOCD cleaning function
-void socd_cleaning(bool *up, bool *down, bool *left, bool *right) {
-    // Vertical cleaning: Up + Down = Neutral
-    if (*up && *down) {
-        *up = false;
-        *down = false;
-    }
-    // Horizontal cleaning: Left + Right = Neutral
-    if (*left && *right) {
-        *left = false;
-        *right = false;
-    }
-}
+// Device Descriptor
+tusb_desc_device_t desc_device = {
+    .bLength = sizeof(tusb_desc_device_t),
+    .bDescriptorType = TUSB_DESC_DEVICE,
+    .bcdUSB = 0x0200,
+    .bDeviceClass = 0x00,
+    .bDeviceSubClass = 0x00,
+    .bDeviceProtocol = 0x00,
+    .bMaxPacketSize0 = CFG_TUD_ENDPOINT0_SIZE,
+    .idVendor = USB_VID,
+    .idProduct = USB_PID,
+    .bcdDevice = 0x0100,
+    .iManufacturer = 0x01,
+    .iProduct = 0x02,
+    .iSerialNumber = 0x00,
+    .bNumConfigurations = 0x01,
+};
 
-// Main function to update USB HID report with cleaned inputs
-void send_hid_report() {
-    bool up, down, left, right;
+// Configuration Descriptors
+const uint8_t configuration_descriptor0[] = {
+    TUD_CONFIG_DESCRIPTOR(1, 2, 0, TUD_CONFIG_DESC_LEN + TUD_HID_DESC_LEN + TUD_HID_DESC_LEN, 0, 100),
+    TUD_HID_DESCRIPTOR(0, 0, HID_ITF_PROTOCOL_KEYBOARD, our_descriptors[0].descriptor_length, 0x81, CFG_TUD_HID_EP_BUFSIZE, 1),
+    TUD_HID_DESCRIPTOR(1, 0, HID_ITF_PROTOCOL_NONE, config_report_descriptor_length, 0x83, CFG_TUD_HID_EP_BUFSIZE, 1),
+};
 
-    // Read raw input states
-    read_directional_inputs(&up, &down, &left, &right);
+// Other configuration descriptors are defined similarly...
 
-    // Apply SOCD cleaning
-    socd_cleaning(&up, &down, &left, &right);
+const uint8_t* configuration_descriptors[] = {
+    configuration_descriptor0,
+    // Add other descriptors as needed
+};
 
-    // Create a report based on cleaned states
-    uint8_t report[4] = {0};
-    report[0] = up ? 1 : 0;       // Set bits or values based on the button state
-    report[1] = down ? 1 : 0;
-    report[2] = left ? 1 : 0;
-    report[3] = right ? 1 : 0;
+char const* string_desc_arr[] = {
+    (const char[]){ 0x09, 0x04 },
+    "RP2040",
+    "HID Remapper XXXX",
+};
 
-    // Send the report over USB
-    tud_hid_report(0, report, sizeof(report));
-}
+// Function Prototypes
+uint8_t const* tud_descriptor_device_cb();
+uint8_t const* tud_descriptor_configuration_cb(uint8_t index);
+uint8_t const* tud_hid_descriptor_report_cb(uint8_t itf);
+uint16_t tud_hid_get_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t report_type, uint8_t* buffer, uint16_t reqlen);
+void tud_hid_set_report_cb(uint8_t itf, uint8_t report_id, hid_report_type_t report_type, uint8_t const* buffer, uint16_t bufsize);
+void tud_hid_set_protocol_cb(uint8_t instance, uint8_t protocol);
+void tud_mount_cb();
 
-void tud_hid_task() {
-    // Check if device is ready to send HID report
-    if (tud_hid_ready()) {
-        send_hid_report();
-    }
-}
+// Device Descriptor Callback
+uint8_t const* tud_descriptor_device_cb() {
+    if ((our_descriptor->
+
